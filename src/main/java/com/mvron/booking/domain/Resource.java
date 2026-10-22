@@ -2,21 +2,21 @@ package com.mvron.booking.domain;
 
 public class Resource {
     private final long id;
-    private String name;
-    private int capacity;
+    private final String name;
+    private final int capacity;
 
     public Resource(long id, String name, int capacity) {
-        this.id = id;
-
         if (name == null) {
-            throw new IllegalArgumentException("name parameter can't be null!");
-        } else if (name.isBlank()) {
-            throw new IllegalArgumentException("name can't be blank!");
+            throw new IllegalArgumentException("name must not be null");
         }
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("name must not be blank");
+        }
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("capacity must be greater than 0");
+        }
+        this.id = id;
         this.name = name;
-        if(capacity < 0){
-            throw new IllegalArgumentException("capacity must be greater than 0!");
-        }
         this.capacity = capacity;
     }
 
@@ -31,5 +31,4 @@ public class Resource {
     public int getCapacity() {
         return capacity;
     }
-
 }
