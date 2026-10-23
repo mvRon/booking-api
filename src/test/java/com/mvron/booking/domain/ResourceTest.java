@@ -7,10 +7,21 @@ import org.junit.jupiter.api.Test;
 
 class ResourceTest {
 
+    private static class TestResource extends Resource {
+        TestResource(long id, String name, int capacity) {
+            super(id, name, capacity);
+        }
+
+        @Override
+        public int getMaxBookingHours() {
+            return 1;
+        }
+    }
+
     @Test
     void createsResourceWithValidData() {
         // Act
-        Resource resource = new Resource(1L, "Room A", 10);
+        Resource resource = new TestResource(1L, "Room A", 10);
 
         // Assert
         assertEquals(1L, resource.getId());
@@ -20,7 +31,7 @@ class ResourceTest {
 
     @Test
     void acceptsMinimumValidCapacity() {
-        Resource resource = new Resource(1L, "Desk 1", 1);
+        Resource resource = new MeetingRoom(1L, "Desk 1", 1, true);
 
         assertEquals(1, resource.getCapacity());
     }
@@ -29,7 +40,7 @@ class ResourceTest {
     void rejectsNullName() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> new Resource(1L, null, 10));
+                () -> new TestResource(1L, null, 10));
 
         assertEquals("name must not be null", exception.getMessage());
     }
@@ -37,24 +48,24 @@ class ResourceTest {
     @Test
     void rejectsEmptyName() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Resource(1L, "", 10));
+                () -> new TestResource(1L, "", 10));
     }
 
     @Test
     void rejectsBlankName() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Resource(1L, "   ", 10));
+                () -> new TestResource(1L, "   ", 10));
     }
 
     @Test
     void rejectsZeroCapacity() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Resource(1L, "Room A", 0));
+                () -> new TestResource(1L, "Room A", 0));
     }
 
     @Test
     void rejectsNegativeCapacity() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Resource(1L, "Room A", -1));
+                () -> new TestResource(1L, "Room A", -1));
     }
 }

@@ -1,11 +1,11 @@
 package com.mvron.booking.domain;
 
-public class Resource {
+public abstract class Resource {
     private final long id;
     private final String name;
     private final int capacity;
 
-    public Resource(long id, String name, int capacity) {
+    protected  Resource(long id, String name, int capacity) {
         if (name == null) {
             throw new IllegalArgumentException("name must not be null");
         }
@@ -31,4 +31,9 @@ public class Resource {
     public int getCapacity() {
         return capacity;
     }
+
+    public abstract int getMaxBookingHours();
+
+
+
 }
