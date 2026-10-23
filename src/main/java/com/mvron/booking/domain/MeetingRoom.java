@@ -1,7 +1,7 @@
 package com.mvron.booking.domain;
 
-public class MeetingRoom extends Resource {
-
+public class MeetingRoom extends Resource implements Priceable {
+    private static final long HOURLY_PRICE_VND = 200_000;
     private final boolean hasProjector;
 
 
@@ -19,4 +19,9 @@ public class MeetingRoom extends Resource {
         return hasProjector;
     }
     
+    @Override 
+    public long getHourlyPriceVnd(){
+        return HOURLY_PRICE_VND;
+    }
+
 }

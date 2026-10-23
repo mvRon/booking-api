@@ -39,4 +39,18 @@ class MeetingRoomTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new MeetingRoom(1L, "", 10, true));
     }
+
+    @Test 
+    void hasValidPrice(){
+        MeetingRoom meetingRoom = new MeetingRoom(1L, "Room A", 10, true);
+        assertEquals(200_000L, meetingRoom.getHourlyPriceVnd());
+    }
+
+    @Test 
+    void calculateTotalPrice(){
+        MeetingRoom meetingRoom = new MeetingRoom(1L, "Room A", 10, true);
+        assertEquals( 600_000L, meetingRoom.calculatePrice(3));
+    }
+
+
 }

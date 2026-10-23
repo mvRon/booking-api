@@ -34,4 +34,16 @@ class DeskSpaceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new DeskSpace(1L, null));
     }
+
+    @Test
+    void hasValidPrice() {
+        DeskSpace deskspace = new DeskSpace(42L, "Desk 1");
+        assertEquals(50_000L, deskspace.getHourlyPriceVnd());
+    }
+
+    @Test
+    void calculateTotalPrice() {
+        DeskSpace deskspace = new DeskSpace(42L, "Desk 1");
+        assertEquals(100_000L, deskspace.calculatePrice(2));
+    }
 }
