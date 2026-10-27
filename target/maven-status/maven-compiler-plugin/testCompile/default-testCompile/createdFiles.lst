@@ -1,1 +1,8 @@
+com\mvron\booking\domain\DeskSpaceTest.class
+com\mvron\booking\domain\ResourceTest$TestResource.class
 com\mvron\booking\BookingApplicationTests.class
+com\mvron\booking\domain\EquipmentRentalTest.class
+com\mvron\booking\domain\MeetingRoomTest.class
+com\mvron\booking\domain\ResourceTest.class
+com\mvron\booking\domain\PriceCalculatorTest.class
+com\mvron\booking\domain\PriceableTest.class
