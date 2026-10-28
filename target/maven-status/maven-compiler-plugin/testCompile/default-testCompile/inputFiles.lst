@@ -6,5 +6,6 @@ C:\Users\phatv\OneDrive\Desktop\booking-api\src\test\java\com\mvron\booking\doma
 C:\Users\phatv\OneDrive\Desktop\booking-api\src\test\java\com\mvron\booking\domain\PriceCalculatorTest.java
 C:\Users\phatv\OneDrive\Desktop\booking-api\src\test\java\com\mvron\booking\domain\pricing\DiscountedPriceCalculatorTest.java
 C:\Users\phatv\OneDrive\Desktop\booking-api\src\test\java\com\mvron\booking\domain\pricing\LongBookingDiscountTest.java
+C:\Users\phatv\OneDrive\Desktop\booking-api\src\test\java\com\mvron\booking\domain\pricing\MemberDiscountTest.java
 C:\Users\phatv\OneDrive\Desktop\booking-api\src\test\java\com\mvron\booking\domain\pricing\NoDiscountTest.java
 C:\Users\phatv\OneDrive\Desktop\booking-api\src\test\java\com\mvron\booking\domain\ResourceTest.java

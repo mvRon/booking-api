@@ -41,4 +41,27 @@ public class DiscountedPriceCalculatorTest {
         assertEquals(100_004L, calculator.calculate(item, 4)); 
     }
 
+    @Test 
+    void intergrationTestWithMemberDiscount() {
+        DiscountStrategy memberDiscount = new MemberDiscount();
+        DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(memberDiscount);
+        assertEquals(90_000L, calculator.calculate(item, 4));
+    }
+
+    @Test 
+    void discountForMemberIsTrue() {
+        boolean isMember = true;
+        DiscountStrategy decision = isMember ? new MemberDiscount() : new NoDiscount();
+        DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(decision);
+        assertEquals(90_000L, calculator.calculate(item, 4));
+    }
+
+    @Test 
+    void discountForMemberIsFalse() {
+        boolean isMember = false;
+        DiscountStrategy decision = isMember ? new MemberDiscount() : new NoDiscount();
+        DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(decision);
+        assertEquals(100_000L, calculator.calculate(item, 4));
+    }
+
 }
