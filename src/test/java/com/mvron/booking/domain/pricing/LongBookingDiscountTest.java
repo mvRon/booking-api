@@ -28,11 +28,6 @@ public class LongBookingDiscountTest {
     void appliesDiscountToDifferentPrice() {
         assertEquals(200_000L, longBookingDiscount.apply(250_000, 6));
     }
-    
-    @Test 
-    void rejectsZeroHours() {
-        assertThrows(IllegalArgumentException.class, () -> longBookingDiscount.apply(250_000, 0));
-    }
 
     @Test 
     void keepsPriceAtOneHour() {

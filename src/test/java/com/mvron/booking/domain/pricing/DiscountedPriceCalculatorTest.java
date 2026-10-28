@@ -9,7 +9,7 @@ import com.mvron.booking.domain.Priceable;
 
 public class DiscountedPriceCalculatorTest {
 
-    private static Priceable item = () -> 25_000L;
+    private static final Priceable item = () -> 25_000L;
     private static DiscountStrategy strategy = (price, hours) -> price / 2;
 
     @Test
@@ -23,14 +23,22 @@ public class DiscountedPriceCalculatorTest {
     }
 
     @Test
-    void calculatesValidDataWithFourHours() {
-        assertEquals(50_000L, strategy.apply(item.calculatePrice(4), 4));
+    void appliesStrategyToOriginalPrice() {
+        DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(strategy);
+        assertEquals(50_000L, calculator.calculate(item, 4));
     }
 
     @Test
-    void calculatesValidDataWithFiveHours() {
-        DiscountStrategy longBookingDiscount = new LongBookingDiscount();
-        assertEquals(100_000L, longBookingDiscount.apply(item.calculatePrice(5), 5));
+    void appliesLongBookingDiscountFromFiveHours() {
+        DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(new LongBookingDiscount());
+        assertEquals(100_000L, calculator.calculate(item, 5));
+    }
+
+    @Test
+    void passesOriginalPriceAndHoursToStrategy() {
+        DiscountStrategy adder = (price, hours) -> price + hours;
+        DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(adder);
+        assertEquals(100_004L, calculator.calculate(item, 4)); 
     }
 
 }
