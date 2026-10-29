@@ -1,7 +1,0 @@
-com\mvron\booking\BookingApplication.class
-com\mvron\booking\domain\Priceable.class
-com\mvron\booking\domain\PriceCalculator.class
-com\mvron\booking\domain\Resource.class
-com\mvron\booking\domain\EquipmentRental.class
-com\mvron\booking\domain\DeskSpace.class
-com\mvron\booking\domain\MeetingRoom.class
