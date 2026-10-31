@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+import com.mvron.booking.domain.DeskSpace;
 import com.mvron.booking.domain.Priceable;
 
 public class DiscountedPriceCalculatorTest {
@@ -62,6 +63,17 @@ public class DiscountedPriceCalculatorTest {
         DiscountStrategy decision = isMember ? new MemberDiscount() : new NoDiscount();
         DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(decision);
         assertEquals(100_000L, calculator.calculate(item, 4));
+    }
+
+    @Test 
+    void memberWithLongBookingGetsBothDiscountsApplied() {
+
+        int hours = 6;
+        Priceable deskSpace = new DeskSpace(1L, "Desk Space");
+        DiscountStrategy combine = DiscountStrategyFactory.create(true, 6);
+        DiscountedPriceCalculator calculator = new DiscountedPriceCalculator(combine);
+        long result = calculator.calculate(deskSpace, hours);
+        assertEquals(216_000L, result);
     }
 
 }
