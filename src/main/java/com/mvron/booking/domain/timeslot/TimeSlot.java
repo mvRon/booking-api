@@ -2,12 +2,11 @@ package com.mvron.booking.domain.timeslot;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 public record TimeSlot(LocalDateTime start, LocalDateTime end) {
     public TimeSlot {
-        Objects.requireNonNull(start, "start must not be null");
-        Objects.requireNonNull(end, "end must not be null");
+        if (start == null) throw new IllegalArgumentException("start must not be null");
+        if (end == null) throw new IllegalArgumentException("end must not be null");
         if (!start.isBefore(end)) {
             throw new IllegalArgumentException("start must be before end");
         }

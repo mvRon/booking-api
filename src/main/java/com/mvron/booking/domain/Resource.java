@@ -33,7 +33,4 @@ public abstract class Resource {
     }
 
     public abstract int getMaxBookingHours();
-
-
-
 }

@@ -104,13 +104,13 @@ class TimeSlotTest {
 
     @Test
     void constructor_throwsException_whenStartIsNull() {
-        assertThrows(NullPointerException.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> new TimeSlot(null, at(11, 0)));
     }
 
     @Test
     void constructor_throwsException_whenEndIsNull() {
-        assertThrows(NullPointerException.class,
+        assertThrows(IllegalArgumentException.class,
                 () -> new TimeSlot(at(9, 0), null));
     }
 
