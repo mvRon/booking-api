@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 // import com.mvron.booking.domain.Resource;
 import com.mvron.booking.domain.timeslot.TimeSlot;
 
-public class ReservationCalendarTest {
+public class ReservationServiceTest {
 
     private static final LocalDate DAY = LocalDate.of(2026, 11, 2);
 
@@ -35,14 +35,14 @@ public class ReservationCalendarTest {
 
     @Test
     void addReservation_acceptsWhenCalendarIsEmpty() {
-        ReservationCalendar calendar = new ReservationCalendar();
+        ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(9, 11)));
         assertEquals(1, calendar.getReservations().size());
     }
 
     @Test
     void addReservation_acceptsWhenSameResourceAndNonOverlappingTimeSlots() {
-        ReservationCalendar calendar = new ReservationCalendar();
+        ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(9, 11)));
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(11, 12)));
         assertEquals(2, calendar.getReservations().size());
@@ -50,7 +50,7 @@ public class ReservationCalendarTest {
 
     @Test
     void addReservation_acceptsWhenDifferentResourceAndOverlappingTimeSlots() {
-        ReservationCalendar calendar = new ReservationCalendar();
+        ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(9, 11)));
         calendar.addReservation(new Reservation(new FakeResource(2, 8), slot(10, 12)));
         assertEquals(2, calendar.getReservations().size());
@@ -58,7 +58,7 @@ public class ReservationCalendarTest {
 
     @Test
     void addReservation_rejectsWhenSameResourceAndOverlappingTimeSlots() {
-        ReservationCalendar calendar = new ReservationCalendar();
+        ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(9, 11)));
         assertThrows(IllegalArgumentException.class,
                 () -> calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(10, 12))));
@@ -66,14 +66,14 @@ public class ReservationCalendarTest {
 
     @Test
     void addReservation_rejectsNullReservation() {
-        ReservationCalendar calendar = new ReservationCalendar();
+        ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(9, 11)));
         assertThrows(IllegalArgumentException.class, () -> calendar.addReservation(null));
     }
 
     @Test
     void getReservations_returnsImmutableList() {
-        ReservationCalendar calendar = new ReservationCalendar();
+        ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(9, 11)));
 
         var reservations = calendar.getReservations();
@@ -84,7 +84,7 @@ public class ReservationCalendarTest {
 
     @Test
     void addReservation_leavesCalendarUnchanged_whenRejected() {
-        ReservationCalendar calendar = new ReservationCalendar();
+        ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         Reservation first = new Reservation(new FakeResource(1, 8), slot(9, 11));
         calendar.addReservation(first);
 

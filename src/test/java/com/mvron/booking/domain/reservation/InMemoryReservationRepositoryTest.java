@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -70,6 +71,7 @@ public class InMemoryReservationRepositoryTest {
         repository.save(reservation1);
         repository.save(reservation2);
         assertEquals(2, repository.findByResourceId(1L).size());
+        assertEquals(List.of(reservation1, reservation2), repository.findByResourceId(1L));
     }
 
 
