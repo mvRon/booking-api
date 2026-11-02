@@ -8,7 +8,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import com.mvron.booking.domain.Resource;
+// import com.mvron.booking.domain.Resource;
 import com.mvron.booking.domain.timeslot.TimeSlot;
 
 public class ReservationCalendarTest {
@@ -19,19 +19,19 @@ public class ReservationCalendarTest {
         return new TimeSlot(DAY.atTime(startHour, 0), DAY.atTime(endHour, 0));
     }
 
-    private static class FakeResource extends Resource {
-        private final int maxHours;
+    // private static class FakeResource extends Resource {
+    //     private final int maxHours;
 
-        FakeResource(long id, int maxHours) {
-            super(id, "fake", 1);
-            this.maxHours = maxHours;
-        }
+    //     FakeResource(long id, int maxHours) {
+    //         super(id, "fake", 1);
+    //         this.maxHours = maxHours;
+    //     }
 
-        @Override
-        public int getMaxBookingHours() {
-            return maxHours;
-        }
-    }
+    //     @Override
+    //     public int getMaxBookingHours() {
+    //         return maxHours;
+    //     }
+    // }
 
     @Test
     void addReservation_acceptsWhenCalendarIsEmpty() {
