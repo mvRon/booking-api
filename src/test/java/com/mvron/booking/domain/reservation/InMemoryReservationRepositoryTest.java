@@ -9,6 +9,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.mvron.booking.domain.reservation.InMemoryReservationRepository;
+import com.mvron.booking.domain.reservation.Reservation;
 import com.mvron.booking.domain.timeslot.TimeSlot;
 
 public class InMemoryReservationRepositoryTest {
