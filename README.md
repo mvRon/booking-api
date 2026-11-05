@@ -1,97 +1,99 @@
 # booking-api
 
-A small Java booking domain model for shared workspace resources (meeting rooms, desks), built to practice object-oriented design, design patterns, and unit testing. A Spring Boot + PostgreSQL layer is planned as the next stage.
+A resource-booking backend (meeting rooms, desk spaces, equipment rental) built to practice object-oriented design, design patterns, test-driven habits and relational data modelling with Java and PostgreSQL.
 
-## Status
-
-- Domain layer: complete (pricing, time slots, reservations, repository abstraction, reservation service).
-- Persistence: in-memory only. A PostgreSQL implementation is planned.
-- Tests: **104 JUnit 5 tests, all passing.**
-- No web layer yet (no REST endpoints).
+> **Status:** the domain layer is complete and fully unit-tested. The PostgreSQL schema is managed by Flyway and the Spring Boot application starts and migrates the database. The persistence adapter (Spring Data JPA) and the REST API are the next milestones (see [Roadmap](#roadmap)).
 
 ## Tech stack
 
-- Java 21 (Temurin)
-- Maven (wrapper included)
-- JUnit 5
-- Spring Boot project skeleton (no Spring dependencies added yet)
+- Java 21 (Temurin), Maven (wrapper included)
+- Spring Boot (Web, Data JPA, Validation), Flyway, PostgreSQL 16
+- JUnit 5 for tests
+- Docker Compose for the local database
 
-## Running the tests
+## What the domain does
+
+- **Resources:** `MeetingRoom` (projector, max 4 hours, 200,000 VND/hour) and `DeskSpace` (one seat, max 8 hours, 50,000 VND/hour) extend an abstract `Resource`.
+- **Pricing:** any `Priceable` (including `EquipmentRental`, which is not a `Resource`) can be priced. Discounts are pluggable strategies: `NoDiscount`, `LongBookingDiscount` (20% from 5 hours), `MemberDiscount` (10%), combined with `CompositeDiscount`. Discounts are applied one after another (20% then 10% gives 72% of the original price, not 70%).
+- **Time slots:** `TimeSlot` is a half-open interval `[start, end)`, so back-to-back bookings are valid. Overlap check: `start.isBefore(other.end) && other.start.isBefore(end)`.
+- **Reservations:** a `Reservation` is a resource plus a time slot. It rejects durations longer than the resource's maximum. Two reservations conflict when they are for the same resource and their time slots overlap.
+
+## Design decisions
+
+| Topic | Decision |
+|---|---|
+| Polymorphism, abstraction | `Resource` is an abstract class (shared state and validation); `Priceable` is an interface (a capability that unrelated types can have). |
+| Strategy | `DiscountStrategy` with several implementations; `DiscountedPriceCalculator` has-a strategy instead of inheriting from one. |
+| Factory | `DiscountStrategyFactory.create(isMember, hours)` chooses and composes strategies. |
+| Open/Closed | A new discount is a new class; existing classes are not modified. |
+| Encapsulation | Constructors validate input (fail fast). `TimeSlot` and `Reservation` are immutable records. |
+| Repository + DI | `ReservationService` depends on the `ReservationRepository` interface, injected through the constructor. It does not know whether data lives in memory or in a database. |
+| Responsibilities | `Reservation` = one booking and its own rules. `ReservationService` = rules across bookings. `ReservationRepository` = store and query contract, no business rules. |
+| Money | `long` in VND, no floating point. |
+
+## Architecture
+
+```
+Controller (planned)  ->  ReservationService  ->  ReservationRepository (interface)
+                                                        |-- InMemoryReservationRepository (tests, demo)
+                                                        |-- Spring Data JPA adapter (planned)
+```
+
+Packages (all under `com.mvron.booking.domain`): root (`Resource`, `MeetingRoom`, `DeskSpace`, `Priceable`, `EquipmentRental`, `PriceCalculator`), `pricing`, `timeslot`, `reservation`.
+
+## Database design
+
+Schema is versioned with Flyway: `src/main/resources/db/migration/V1__create_resource_and_reservation.sql`. Applied migrations must never be edited; schema changes go into a new `V2__...` file.
+
+- **`resource`**: one table for all resource types (`SINGLE_TABLE` inheritance, discriminator column `type`). Subtypes currently have no columns of their own, so nothing is wasted and no JOIN is needed. If subtypes later gain many specific columns, the strategy can change to `JOINED` through a new migration.
+- **`reservation`**: has its own primary key. `resource_id` is a foreign key on the "many" side, with an index (PostgreSQL does not create indexes for foreign keys automatically).
+- **Constraints:** `CHECK (capacity > 0)`, `CHECK (type IN ('MEETING_ROOM','DESK_SPACE'))`, `CHECK (start_time < end_time)`.
+- **No double booking:** an exclusion constraint (`btree_gist`) on `resource_id WITH =` and `tsrange(start_time, end_time) WITH &&`. This is the database version of `Reservation.conflictsWith`. A check in the service followed by an insert is two separate steps, so two concurrent requests can both pass the check. A transaction alone does not fix this at the default isolation level (Read Committed); the constraint makes the check and the write one atomic operation. The service check stays for friendly error messages, and the database is the last line of defence.
+
+## Getting started
+
+Prerequisites: JDK 21, Docker with Compose.
 
 ```bash
-./mvnw test          # Linux / macOS / WSL
-mvnw.cmd test        # Windows
+# 1. start PostgreSQL (learning-only credentials: booking / booking / booking)
+docker compose up -d
+
+# 2. run the application; Flyway creates the tables on startup
+./mvnw spring-boot:run          # Windows: .\mvnw.cmd spring-boot:run
+
+# 3. inspect the database (optional)
+docker compose exec db psql -U booking -d booking
 ```
 
-## Project structure
+Connection settings are in `src/main/resources/application.properties`. Hibernate is set to `ddl-auto=validate`, so Flyway is the only owner of the schema. Do not use these credentials outside local development.
 
-```
-com.mvron.booking
-├── domain
-│   ├── Resource (abstract), MeetingRoom, DeskSpace
-│   ├── Priceable, EquipmentRental, PriceCalculator
-│   ├── pricing
-│   │   ├── DiscountStrategy, NoDiscount, LongBookingDiscount, MemberDiscount
-│   │   ├── CompositeDiscount
-│   │   ├── DiscountStrategyFactory
-│   │   └── DiscountedPriceCalculator
-│   ├── timeslot
-│   │   └── TimeSlot
-│   └── reservation
-│       ├── Reservation
-│       ├── ReservationService
-│       ├── ReservationRepository (interface)
-│       └── InMemoryReservationRepository
-└── BookingApplication
+**Troubleshooting:** if startup fails with `invalid value for parameter "TimeZone": "Asia/Saigon"`, the JVM reports a legacy time zone name that PostgreSQL rejects. Run with `-Duser.timezone=Asia/Ho_Chi_Minh` (or set the default time zone in `main`).
+
+## Tests
+
+```bash
+./mvnw test
 ```
 
-Test code mirrors the main structure. Shared test helpers (`FakeResource`, `SpyReservationRepository`) live in the test folder of the `reservation` package.
-
-## Design overview
-
-### Resources
-`Resource` is an abstract entity (`id`, `name`, `capacity`) with a per-type maximum booking duration. `MeetingRoom` (max 4 hours) and `DeskSpace` (max 8 hours) extend it. Pricing is separated through the `Priceable` interface, so `EquipmentRental` can be priced without being a `Resource` (composition and interfaces over a deep inheritance tree).
-
-### Pricing: Strategy, Composite, Factory
-- `DiscountStrategy` defines a discount rule; `NoDiscount`, `LongBookingDiscount` (20% off from 5 hours) and `MemberDiscount` (10% off) implement it.
-- `CompositeDiscount` applies several strategies in sequence. Discounts **multiply** rather than add (20% then 10% gives a 28% total reduction, not 30%).
-- `DiscountStrategyFactory` chooses the strategy from the booking context.
-- `DiscountedPriceCalculator` receives a strategy (has-a), so new discount rules can be added without modifying existing code (Open/Closed Principle).
-- Money is stored as `long` (VND).
-
-### Time slots
-`TimeSlot` is an immutable value object (a Java `record`) using `LocalDateTime` and a **half-open interval** `[start, end)`. Two back-to-back slots (one ends at 11:00, the next starts at 11:00) do not overlap. Overlap check: `start.isBefore(other.end) && other.start.isBefore(end)`.
-
-### Reservations
-- `Reservation` (record) combines a `Resource` and a `TimeSlot`. It validates its own invariants: no nulls and no duration above the resource's maximum. `conflictsWith` is true only for the same resource id **and** overlapping time slots.
-- `ReservationService` holds the rule that spans several reservations: *a new reservation must not conflict with existing ones for the same resource*. The check runs **before** saving, so a rejected request leaves the stored data unchanged (failure atomicity).
-- `ReservationRepository` is the storage contract (`save`, `findAll`, `findByResourceId`). `InMemoryReservationRepository` is the current implementation and returns immutable copies of its data.
-
-### Dependency Injection and the Repository pattern
-`ReservationService` receives a `ReservationRepository` through its constructor and depends only on the interface. Business rules stay out of the repository, so any implementation (in-memory now, JPA later) behaves the same way. In unit tests the service is exercised with an in-memory repository, and with a hand-written spy repository that verifies `save` is never called for a conflicting reservation.
-
-## Testing approach
-
-- Arrange-Act-Assert, with one test class per production class.
-- Equivalence partitioning and boundary values (adjacent slots, one minute off).
-- Both directions checked for symmetric rules (A conflicts with B, and B with A).
-- Failure atomicity: a rejected operation does not change state.
-- Immutability: returned lists cannot be modified.
-- Tests do not call `now()`, so they are deterministic.
-- Test doubles: `FakeResource` (fake) and `SpyReservationRepository` (spy that counts calls).
+104 unit tests cover pricing, strategies, the factory, time slots (boundary values, adjacent and off-by-one-minute cases), reservations, the in-memory repository and `ReservationService`. Techniques used: Arrange-Act-Assert, equivalence partitioning, boundary values, hand-written fakes and spies, "rejected input leaves state unchanged" tests, and mutation by hand (deliberately breaking code to confirm a test fails).
 
 ## Assumptions and limitations
 
-- Invalid input, including a reservation conflict, throws `IllegalArgumentException`. A dedicated conflict exception (mapped to HTTP 409) is planned for the REST layer.
-- `ReservationService` is **not thread-safe**: checking for a conflict and then saving is a check-then-act race. With a database this will be handled by transactions and/or a database constraint.
-- Callers pass the number of hours to the factory and to the calculator separately; they must pass the same value. Deriving it from `TimeSlot.duration()` (and deciding how to price partial hours) is planned.
+- Price and maximum hours are defined in code (`MeetingRoom`, `DeskSpace`), not in the database yet.
+- Hours for pricing are passed in by the caller; deriving them from `TimeSlot.duration()` (including partial hours) is not decided yet.
+- Invalid input and booking conflicts currently throw `IllegalArgumentException`; a dedicated conflict exception mapped to HTTP 409 comes with the REST layer.
+- `ReservationService` alone is not thread-safe (check-then-act). Concurrency safety is provided by the database exclusion constraint.
+- Time is stored as `TIMESTAMP` without time zone (local date-time). A multi-region system would use UTC and `TIMESTAMPTZ`.
 - No cancellation of reservations yet.
-- `Resource` does not override `equals`/`hashCode` yet; reservations compare resources by `id`.
+- Database tests are manual (`psql`); automated database tests are planned.
 
 ## Roadmap
 
-1. Spring Boot with Web, Validation, Data JPA, PostgreSQL (Docker Compose) and Flyway migrations.
-2. Database design for `resource` and `reservation` (keys, foreign keys, constraint against overlapping reservations).
-3. REST API with global error handling, OpenAPI/Swagger documentation.
-4. Mockito tests and a GitHub Actions pipeline.
-5. Later: authentication (JWT), idempotency, Testcontainers.
+- [x] Domain model, pricing strategies, factory, time slots, reservations
+- [x] Repository pattern and dependency injection, 104 unit tests
+- [x] PostgreSQL schema with constraints and exclusion constraint
+- [x] Spring Boot skeleton with Flyway migrations
+- [ ] Spring Data JPA persistence (entities, `SINGLE_TABLE` mapping)
+- [ ] REST controllers, DTO validation, global error handling (409 on conflict), Swagger
+- [ ] Mockito tests, GitHub Actions CI
+- [ ] Later: Spring Security with JWT, Testcontainers, idempotency
