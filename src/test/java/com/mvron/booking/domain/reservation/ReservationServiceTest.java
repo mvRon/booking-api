@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 // import com.mvron.booking.domain.Resource;
 import com.mvron.booking.domain.timeslot.TimeSlot;
+import com.mvron.booking.infrastructure.persistence.InMemoryReservationRepository;
 
 public class ReservationServiceTest {
 

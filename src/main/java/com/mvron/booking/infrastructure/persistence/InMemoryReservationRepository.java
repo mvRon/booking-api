@@ -1,7 +1,10 @@
-package com.mvron.booking.domain.reservation;
+package com.mvron.booking.infrastructure.persistence;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.mvron.booking.domain.reservation.Reservation;
+import com.mvron.booking.domain.reservation.ReservationRepository;
 
 
 public class InMemoryReservationRepository implements ReservationRepository {
