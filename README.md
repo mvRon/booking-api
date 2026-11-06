@@ -2,7 +2,7 @@
 
 A resource-booking backend (meeting rooms, desk spaces, equipment rental) built to practice object-oriented design, design patterns, test-driven habits and relational data modelling with Java and PostgreSQL.
 
-> **Status:** the domain layer is complete and fully unit-tested. The PostgreSQL schema is managed by Flyway and the Spring Boot application starts and migrates the database. The persistence adapter (Spring Data JPA) and the REST API are the next milestones (see [Roadmap](#roadmap)).
+> **Status:** the domain layer is complete and unit-tested. Reservations are persisted in PostgreSQL through Spring Data JPA, behind the domain repository interface, with the schema managed by Flyway and covered by integration tests. The REST API is the next milestone (see [Roadmap](#roadmap)).
 
 ## Tech stack
 
@@ -34,18 +34,25 @@ A resource-booking backend (meeting rooms, desk spaces, equipment rental) built 
 ## Architecture
 
 ```
-Controller (planned)  ->  ReservationService  ->  ReservationRepository (interface)
+Controller (planned)  ->  ReservationService  ->  ReservationRepository (domain interface)
                                                         |-- InMemoryReservationRepository (tests, demo)
-                                                        |-- Spring Data JPA adapter (planned)
+                                                        |-- JpaReservationRepository (adapter)
+                                                              |-- ResourceEntityMapper (entity -> domain)
+                                                              |-- Spring Data repositories -> PostgreSQL
 ```
 
-Packages (all under `com.mvron.booking.domain`): root (`Resource`, `MeetingRoom`, `DeskSpace`, `Priceable`, `EquipmentRental`, `PriceCalculator`), `pricing`, `timeslot`, `reservation`.
+Packages:
+
+- `com.mvron.booking.domain`: business rules, plain Java, no framework. Sub-packages `pricing`, `timeslot`, `reservation`.
+- `com.mvron.booking.infrastructure.persistence`: everything that touches the database (JPA entities, mapper, Spring Data repositories, the repository adapter). Dependencies point one way: infrastructure imports domain, never the reverse.
+
+JPA entities are separate from domain classes on purpose. JPA needs a no-argument constructor and non-final fields, while the domain keeps immutable, self-validating objects such as the `Reservation` record. The cost is a mapping layer.
 
 ## Database design
 
-Schema is versioned with Flyway: `src/main/resources/db/migration/V1__create_resource_and_reservation.sql`. Applied migrations must never be edited; schema changes go into a new `V2__...` file.
+Schema is versioned with Flyway in `src/main/resources/db/migration/`: `V1__create_resource_and_reservation.sql` and `V2__add_has_projector_to_resource.sql`. Applied migrations must never be edited; schema changes go into a new `V2__...` file.
 
-- **`resource`**: one table for all resource types (`SINGLE_TABLE` inheritance, discriminator column `type`). Subtypes currently have no columns of their own, so nothing is wasted and no JOIN is needed. If subtypes later gain many specific columns, the strategy can change to `JOINED` through a new migration.
+- **`resource`**: one table for all resource types (`SINGLE_TABLE` inheritance, discriminator column `type`). `MeetingRoom` has one column of its own, `has_projector` (added in `V2`). It is nullable because desk spaces have no projector, and a CHECK constraint (`chk_meeting_room_projector`) requires a value for meeting rooms. This keeps one table and no JOIN. If subtypes later gain many specific columns, the strategy can change to `JOINED` through a new migration.
 - **`reservation`**: has its own primary key. `resource_id` is a foreign key on the "many" side, with an index (PostgreSQL does not create indexes for foreign keys automatically).
 - **Constraints:** `CHECK (capacity > 0)`, `CHECK (type IN ('MEETING_ROOM','DESK_SPACE'))`, `CHECK (start_time < end_time)`.
 - **No double booking:** an exclusion constraint (`btree_gist`) on `resource_id WITH =` and `tsrange(start_time, end_time) WITH &&`. This is the database version of `Reservation.conflictsWith`. A check in the service followed by an insert is two separate steps, so two concurrent requests can both pass the check. A transaction alone does not fix this at the default isolation level (Read Committed); the constraint makes the check and the write one atomic operation. The service check stays for friendly error messages, and the database is the last line of defence.
@@ -75,7 +82,12 @@ Connection settings are in `src/main/resources/application.properties`. Hibernat
 ./mvnw test
 ```
 
-104 unit tests cover pricing, strategies, the factory, time slots (boundary values, adjacent and off-by-one-minute cases), reservations, the in-memory repository and `ReservationService`. Techniques used: Arrange-Act-Assert, equivalence partitioning, boundary values, hand-written fakes and spies, "rejected input leaves state unchanged" tests, and mutation by hand (deliberately breaking code to confirm a test fails).
+More than 100 automated tests.
+
+- **Unit tests** cover pricing, strategies, the factory, time slots (boundary values, adjacent and off-by-one-minute cases), reservations, the in-memory repository, `ReservationService` and the entity mapper. Techniques: Arrange-Act-Assert, equivalence partitioning, boundary values, hand-written fakes and spies, "rejected input leaves state unchanged" tests, and mutation by hand (deliberately breaking code to confirm a test fails).
+- **Integration tests** (`@SpringBootTest`) run the whole chain against the PostgreSQL started by Docker Compose: save and read back a reservation, filter by resource, the service rejecting an overlap, and the database exclusion constraint rejecting an overlap even when the service is bypassed.
+
+Integration tests need PostgreSQL running (`docker compose up -d`) and clear the `reservation` and `resource` tables before each test.
 
 ## Assumptions and limitations
 
@@ -85,7 +97,8 @@ Connection settings are in `src/main/resources/application.properties`. Hibernat
 - `ReservationService` alone is not thread-safe (check-then-act). Concurrency safety is provided by the database exclusion constraint.
 - Time is stored as `TIMESTAMP` without time zone (local date-time). A multi-region system would use UTC and `TIMESTAMPTZ`.
 - No cancellation of reservations yet.
-- Database tests are manual (`psql`); automated database tests are planned.
+- `ReservationService` is not a Spring bean yet; the integration tests create it by hand. It will be registered when the REST layer is added.
+- Integration tests use the local Docker PostgreSQL and delete its data; an isolated test database (Testcontainers) is planned.
 
 ## Roadmap
 
@@ -93,7 +106,7 @@ Connection settings are in `src/main/resources/application.properties`. Hibernat
 - [x] Repository pattern and dependency injection, 104 unit tests
 - [x] PostgreSQL schema with constraints and exclusion constraint
 - [x] Spring Boot skeleton with Flyway migrations
-- [ ] Spring Data JPA persistence (entities, `SINGLE_TABLE` mapping)
+- [x] Spring Data JPA persistence (entities, mapper, repository adapter, integration tests)
 - [ ] REST controllers, DTO validation, global error handling (409 on conflict), Swagger
 - [ ] Mockito tests, GitHub Actions CI
 - [ ] Later: Spring Security with JWT, Testcontainers, idempotency
