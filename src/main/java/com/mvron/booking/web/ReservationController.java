@@ -2,6 +2,10 @@ package com.mvron.booking.web;
 
 import com.mvron.booking.application.BookingApplicationService;
 import com.mvron.booking.domain.reservation.Reservation;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +27,13 @@ public class ReservationController {
         this.bookingService = bookingService;
     }
 
+    @Operation(summary = "Create a reservation for a resource")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Reservation created"),
+            @ApiResponse(responseCode = "400", description = "Invalid request data"),
+            @ApiResponse(responseCode = "404", description = "Resource not found"),
+            @ApiResponse(responseCode = "409", description = "Resource already booked for this time slot")
+    })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ReservationResponse create(@Valid @RequestBody CreateReservationRequest request) {
