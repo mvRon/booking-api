@@ -21,7 +21,7 @@ public class ReservationService {
         List<Reservation> existingReservations = reservationRepository.findByResourceId(reservation.resource().getId());
         for (Reservation existingReservation : existingReservations) {
             if (reservation.conflictsWith(existingReservation)) {
-                throw new IllegalArgumentException("reservation conflicts with existing reservation");
+                throw new ReservationConflictException("reservation conflicts with existing reservation");
             }
         }
         reservationRepository.save(reservation);

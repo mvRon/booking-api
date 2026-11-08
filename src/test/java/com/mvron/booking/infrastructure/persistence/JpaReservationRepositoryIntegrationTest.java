@@ -16,6 +16,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.mvron.booking.domain.MeetingRoom;
 import com.mvron.booking.domain.Resource;
 import com.mvron.booking.domain.reservation.Reservation;
+import com.mvron.booking.domain.reservation.ReservationConflictException;
 import com.mvron.booking.domain.reservation.ReservationService;
 import com.mvron.booking.domain.timeslot.TimeSlot;
 
@@ -83,7 +84,7 @@ class JpaReservationRepositoryIntegrationTest {
         Resource room = saveMeetingRoom("Room A");
         service.addReservation(new Reservation(room, slot(9, 11)));
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ReservationConflictException.class,
                 () -> service.addReservation(new Reservation(room, slot(10, 12))));
 
         assertEquals(1, service.getReservations().size());

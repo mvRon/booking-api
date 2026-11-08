@@ -61,7 +61,7 @@ public class ReservationServiceTest {
     void addReservation_rejectsWhenSameResourceAndOverlappingTimeSlots() {
         ReservationService calendar = new ReservationService(new InMemoryReservationRepository());
         calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(9, 11)));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ReservationConflictException.class,
                 () -> calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(10, 12))));
     }
 
@@ -89,7 +89,7 @@ public class ReservationServiceTest {
         Reservation first = new Reservation(new FakeResource(1, 8), slot(9, 11));
         calendar.addReservation(first);
 
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(ReservationConflictException.class,
                 () -> calendar.addReservation(new Reservation(new FakeResource(1, 8), slot(10, 12))));
 
         assertEquals(List.of(first), calendar.getReservations());

@@ -25,7 +25,7 @@ public class SpyReservationRepositoryTest {
         ReservationService service = new ReservationService(spy); 
         Reservation conflicting = new Reservation(new FakeResource(1L, 8), slot(10, 12));
        
-        assertThrows(IllegalArgumentException.class, () -> service.addReservation(conflicting));
+        assertThrows(ReservationConflictException.class, () -> service.addReservation(conflicting));
         assertEquals(0, spy.saveCallCount);
     }
 
