@@ -17,9 +17,6 @@ class PasswordHashingTest {
         String hash1 = encoder.encode("secret123");
         String hash2 = encoder.encode("secret123");
 
-        System.out.println("hash1 = " + hash1);
-        System.out.println("hash2 = " + hash2);
-        System.out.println("length = " + hash1.length());
 
         assertNotEquals(hash1, hash2);
     }

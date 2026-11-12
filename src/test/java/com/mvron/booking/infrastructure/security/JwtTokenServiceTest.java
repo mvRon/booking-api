@@ -31,7 +31,6 @@ class JwtTokenServiceTest {
     @Test
     void issuedTokenCanBeDecodedAndCarriesClaims() {
         String token = service.issueToken("admin@example.com", "ADMIN");
-        System.out.println("token = " + token);
 
         Jwt jwt = decoder.decode(token);
 
