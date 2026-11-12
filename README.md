@@ -2,7 +2,7 @@
 
 A resource-booking backend (meeting rooms, desk spaces, equipment rental) built to practice object-oriented design, design patterns, test-driven habits, relational data modelling, REST API design and token-based security with Java, Spring Boot and PostgreSQL.
 
-> **Status:** the domain layer is complete and unit-tested. Reservations are persisted in PostgreSQL through Spring Data JPA, with the schema managed by Flyway. The REST API has two endpoints: log in (`POST /auth/login`) and create a reservation (`POST /reservations`). Users are stored in the database with BCrypt-hashed passwords, and the API is protected with stateless JWT authentication built on Spring Security. Errors are mapped to HTTP status codes (400, 401, 404, 409) and the API is documented with Swagger UI. 127 automated tests. Next milestone: Mockito tests and CI (see [Roadmap](#roadmap)).
+> **Status:** the domain layer is complete and unit-tested. Reservations are persisted in PostgreSQL through Spring Data JPA, with the schema managed by Flyway. The REST API has two endpoints: log in (`POST /auth/login`) and create a reservation (`POST /reservations`). Users are stored in the database with BCrypt-hashed passwords, and the API is protected with stateless JWT authentication built on Spring Security. Errors are mapped to HTTP status codes (400, 401, 404, 409) with a consistent JSON body, and the API is documented with Swagger UI, which can send a Bearer token. 128 automated tests. Next milestone: Mockito tests and CI (see [Roadmap](#roadmap)).
 
 ## Tech stack
 
@@ -26,9 +26,10 @@ The API uses **stateless JWT authentication** built on Spring Security.
 
 - Users live in the `app_user` table. Passwords are stored as BCrypt hashes, never in plain text.
 - `POST /auth/login` checks the email and password and returns a signed JWT (HS256, valid for 1 hour). The token carries the user's email (`sub`), the issue and expiry times (`iat`, `exp`) and the role (`role`).
-- Every endpoint except `POST /auth/login` (and the technical `/error` page) requires the header `Authorization: Bearer <token>`.
+- Every endpoint requires the header `Authorization: Bearer <token>`, except `POST /auth/login`, the technical `/error` page, and the Swagger UI and OpenAPI JSON paths (see [API documentation](#api-documentation-swagger-ui)).
 - The server keeps no session and no cookie is used for authentication. CSRF protection is therefore disabled on purpose: CSRF attacks rely on the browser attaching a cookie automatically, while a Bearer token is attached by the client itself.
 - Verifying a token is a signature and expiry check. It does not query the database.
+- Bearer tokens are the only authentication method. HTTP Basic is not enabled.
 
 Log in:
 
@@ -92,14 +93,16 @@ Response `201 Created`:
 
 ### Errors
 
-Business errors use the standard `ProblemDetail` format (RFC 9457) with `status`, `title` and `detail`:
+All errors are returned as JSON with the media type `application/problem+json` (RFC 9457), with `status`, `title` and `detail`:
 
 | Status | When | Where it is decided |
 |---|---|---|
 | 400 Bad Request | A field is missing or blank (including on login), `start` is not before `end`, or the booking is longer than the resource allows | Bean Validation (`@NotNull`, `@NotBlank`), `TimeSlot` and `Reservation` constructors |
-| 401 Unauthorized | The token is missing, invalid, tampered with or expired; or the email or password is wrong on login | Spring Security (`BearerTokenAuthenticationFilter`, `AuthenticationManager`). The 401 response body is Spring Security's default and is not customised yet |
+| 401 Unauthorized | The token is missing, invalid, tampered with or expired; or the email or password is wrong on login | Spring Security (`BearerTokenAuthenticationFilter`, `AuthenticationManager`). `JsonAuthenticationEntryPoint` writes the JSON body and keeps the standard `WWW-Authenticate: Bearer` header |
 | 404 Not Found | No resource exists with the given `resourceId` | `ResourceNotFoundException` |
 | 409 Conflict | The resource is already booked for an overlapping time slot | `ReservationConflictException` (service check) or the database exclusion constraint |
+
+The 401 `detail` is a fixed, generic message. It does not say why authentication failed (bad signature, expired, unknown user), so a caller learns nothing useful for guessing. The real reason is only in the server log.
 
 ### API documentation (Swagger UI)
 
@@ -110,7 +113,15 @@ With the application running:
 
 The request and response shapes are generated from the DTO classes. The list of status codes is declared by hand with `@ApiResponses` on the controller, because the error codes are chosen at runtime by the exception handler and cannot be inferred from the code.
 
-Swagger UI and the OpenAPI JSON are not in the public list, so they are behind authentication like every other path. A security scheme for Swagger UI's "Authorize" button (so the endpoints can be tried with a Bearer token) is not configured yet; see the [Roadmap](#roadmap).
+Swagger UI and the OpenAPI JSON are public: they describe the API but contain no data, and every real endpoint stays behind authentication. A production deployment would normally restrict or disable them.
+
+To try a protected endpoint in Swagger UI:
+
+1. Call `POST /auth/login` and copy the value of `accessToken`.
+2. Click **Authorize** and paste the token. Do not type the word `Bearer`; Swagger UI adds it.
+3. Call `POST /reservations`. The padlock icon marks endpoints that need a token.
+
+The security scheme (`bearerAuth`) is declared in `OpenApiConfig` and attached to the controller with `@SecurityRequirement`. This only affects the documentation; the server's real rules are in `SecurityConfig`, so the two must be kept in sync by hand.
 
 ## Design decisions
 
@@ -125,6 +136,7 @@ Swagger UI and the OpenAPI JSON are not in the public list, so they are behind a
 | Responsibilities | `Reservation` = one booking and its own rules. `ReservationService` = rules across bookings. `BookingApplicationService` = one user action ("book"): look up the resource, build the reservation, call the domain. Repositories = store and query contracts, no business rules. |
 | Exceptions | Three kinds of failure, three exception types: bad input (`IllegalArgumentException`, 400), missing resource (`ResourceNotFoundException`, 404), booking conflict (`ReservationConflictException`, 409). `IllegalStateException` is used when stored data is in a state the code cannot handle. |
 | Error mapping | One `@RestControllerAdvice` turns exceptions into HTTP responses. Controllers and services contain no `try/catch`. |
+| Errors from filters | `@RestControllerAdvice` only sees exceptions thrown inside controllers. Authentication failures happen earlier, in a security filter, so a separate `AuthenticationEntryPoint` (`JsonAuthenticationEntryPoint`) produces the 401 response. Without it, 401 would have an empty body while every other error has JSON. |
 | DTOs | Request and response classes are separate from domain classes, so the public JSON does not change when the domain changes. `@NotNull` and `@NotBlank` check the shape of the data; business rules stay in the domain. |
 | Money | `long` in VND, no floating point. |
 | Stateless authentication | Log in once, then send a signed token with each request. No server-side session, so nothing to store or replicate. The trade-off: a token cannot be revoked before it expires, so tokens are short-lived (1 hour). |
@@ -134,6 +146,7 @@ Swagger UI and the OpenAPI JSON are not in the public list, so they are behind a
 | JWT payload | The payload is encoded, not encrypted: anyone holding a token can read it. The signature only prevents changes. So no sensitive data goes into the token. |
 | Roles | One role per user, stored as text with a CHECK constraint (`USER`, `ADMIN`). Adding a role is a new migration. If users ever need several roles, a separate `role` table with a join table would replace this. |
 | Secrets | The signing key is read from `${JWT_SECRET}` with a development-only default, so one build runs in every environment and each environment supplies its own key. |
+| Rule order | In `SecurityConfig`, specific rules come before general ones (`permitAll` paths first, then `anyRequest().authenticated()`). The first matching rule wins. |
 
 ## Architecture
 
@@ -158,6 +171,8 @@ POST /auth/login -> AuthController -> AuthenticationManager (DaoAuthenticationPr
 
 Any other request -> BearerTokenAuthenticationFilter -> JwtDecoder (signature, expiry)
                   -> SecurityContext -> Controller
+
+Authentication failure -> JsonAuthenticationEntryPoint -> 401 application/problem+json
 ```
 
 Packages (`com.mvron.booking`):
@@ -166,8 +181,8 @@ Packages (`com.mvron.booking`):
 - `application`: `BookingApplicationService`, which coordinates one user action. It adds no new business rules.
 - `web`: REST controllers (`ReservationController`, `AuthController`), request/response DTOs and the global exception handler.
 - `infrastructure.persistence`: everything that touches the database (JPA entities including `AppUserEntity`, mapper, Spring Data repositories, repository adapters).
-- `infrastructure.security`: `AppUserDetailsService` (loads a user for Spring Security) and `JwtTokenService` (issues tokens).
-- `infrastructure.config`: Spring configuration: `ServiceConfig` (service beans), `SecurityConfig` (filter chain, password encoder, authentication manager) and `JwtConfig` (signing key, JWT encoder and decoder). The domain and application layers stay free of Spring annotations and know nothing about Spring Security.
+- `infrastructure.security`: `AppUserDetailsService` (loads a user for Spring Security), `JwtTokenService` (issues tokens) and `JsonAuthenticationEntryPoint` (the 401 response).
+- `infrastructure.config`: Spring configuration: `ServiceConfig` (service beans), `SecurityConfig` (filter chain, password encoder, authentication manager), `JwtConfig` (signing key, JWT encoder and decoder) and `OpenApiConfig` (Swagger security scheme). The domain and application layers stay free of Spring annotations and know nothing about Spring Security.
 
 Dependencies point one way: `application` and `infrastructure` import `domain`; `domain` imports none of them. One known exception: `AuthController` (in `web`) uses `JwtTokenService` from `infrastructure.security` directly. A class in the `application` layer between them would be cleaner; this was left simple on purpose.
 
@@ -217,7 +232,7 @@ VALUES ('admin@example.com', '<bcrypt-hash>', 'ADMIN');
 
 Run these statements inside an interactive `psql` session. Passing the hash through `psql -c "..."` from some shells can mangle the `$` characters in it.
 
-Then call `POST /auth/login` to get a token and send it as `Authorization: Bearer <token>` to `POST /reservations`.
+Then call `POST /auth/login` to get a token and send it as `Authorization: Bearer <token>` to `POST /reservations` (or use the **Authorize** button in Swagger UI).
 
 Connection settings are in `src/main/resources/application.properties`. Hibernate is set to `ddl-auto=validate`, so Flyway is the only owner of the schema. Do not use these credentials, or the default JWT secret, outside local development.
 
@@ -229,17 +244,18 @@ Connection settings are in `src/main/resources/application.properties`. Hibernat
 ./mvnw test
 ```
 
-127 automated tests.
+128 automated tests.
 
 - **Unit tests** cover pricing, strategies, the factory, time slots (boundary values, adjacent and off-by-one-minute cases), reservations, the in-memory repository, `ReservationService`, the entity mapper, `BookingApplicationService` (with a fake resource repository, no Spring and no database) and the exception handler (status code chosen for each constraint name). Techniques: Arrange-Act-Assert, equivalence partitioning, boundary values, hand-written fakes and spies, "rejected input leaves state unchanged" tests, and mutation by hand (deliberately breaking code to confirm a test fails).
-- **Security unit tests** (plain JUnit, no Spring):
+- **Security unit tests** (plain JUnit, no Spring server needed):
   - `PasswordHashingTest`: hashing the same password twice gives different hashes (salt); `matches` accepts only the right password; the hash does not contain the password and is 60 characters long.
   - `JwtTokenServiceTest`: an issued token decodes with the expected subject, role and one-hour lifetime; a token verified with a different key is rejected; a token whose payload was swapped for another token's payload is rejected (the signature no longer matches).
+  - `JsonAuthenticationEntryPointTest`: the entry point answers with status 401, the `application/problem+json` content type, a body containing `"status":401` and a `WWW-Authenticate: Bearer` header. It is tested directly with mock request and response objects, without MockMvc.
 - **Integration tests** (`@SpringBootTest`) run against the PostgreSQL started by Docker Compose: save and read back a reservation, look up a resource by id (found and not found), filter by resource, the service rejecting an overlap, and the database exclusion constraint rejecting an overlap even when the service is bypassed.
 
 Integration tests need PostgreSQL running (`docker compose up -d`) and clear the `reservation` and `resource` tables before each test.
 
-The HTTP path was checked by hand with Postman: login (success and wrong password), a protected endpoint with a valid token, a tampered token, and the reservation errors (201, 400, 404, 409). There is no automated HTTP-level test yet, and `AppUserDetailsService`, `AuthController` and the security configuration have no automated tests of their own.
+The HTTP path was checked by hand with Postman and Swagger UI: login (success and wrong credentials), a protected endpoint with a valid token, a tampered token, a missing token, Basic authentication being rejected, and the reservation errors (201, 400, 404, 409). There is no automated HTTP-level test yet, and `AppUserDetailsService`, `AuthController` and the security configuration have no automated tests of their own.
 
 ## Assumptions and limitations
 
@@ -247,8 +263,9 @@ The HTTP path was checked by hand with Postman: login (success and wrong passwor
 - Reservations are not linked to users: any logged-in user can book, and the system does not record who booked.
 - The `role` is stored in the token but is not used for any access decision yet. Every authenticated user can call every protected endpoint.
 - Tokens are not revocable before they expire (1 hour) and there is no refresh token. There is no limit on failed login attempts.
-- HTTP Basic authentication is still enabled next to Bearer tokens; it is planned to be removed so the API has a single authentication method.
 - The default JWT signing key in `application.properties` is public. It exists only so the project runs out of the box; set `JWT_SECRET` anywhere else.
+- Swagger UI and the OpenAPI JSON are open to everyone, which is fine for a learning project but not for production.
+- Token expiry (after 1 hour) has only been checked through configuration, not by waiting for a token to expire.
 - Price and maximum hours are defined in code (`MeetingRoom`, `DeskSpace`), not in the database yet. The API does not return a price.
 - Hours for pricing are passed in by the caller; deriving them from `TimeSlot.duration()` (including partial hours) is not decided yet.
 - The exception handler maps every `IllegalArgumentException` to 400, including one caused by a programming bug. A larger system would use a dedicated exception for invalid user input.
@@ -265,7 +282,7 @@ The HTTP path was checked by hand with Postman: login (success and wrong passwor
 - [x] Spring Data JPA persistence (entities, mapper, repository adapters, integration tests)
 - [x] REST endpoint, DTO validation, global error handling (400 / 404 / 409), Swagger UI
 - [x] Users in the database, BCrypt password hashing, JWT login and Bearer token verification
-- [ ] Remove HTTP Basic, make Swagger UI work with Bearer tokens, consistent JSON body for 401 responses
+- [x] Remove HTTP Basic, make Swagger UI work with Bearer tokens, consistent JSON body for 401 responses
 - [ ] Role-based authorization (an endpoint only `ADMIN` can call), link reservations to users
 - [ ] Mockito tests, GitHub Actions CI
 - [ ] More endpoints (create and list resources, cancel a reservation), automated HTTP-level tests
