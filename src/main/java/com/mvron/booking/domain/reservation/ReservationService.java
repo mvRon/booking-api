@@ -31,4 +31,8 @@ public class ReservationService {
         return reservationRepository.findAll();
     }
 
+    public List<Reservation> getReservationsByResourceId(long resourceId) {
+        return reservationRepository.findByResourceId(resourceId);
+    }
+
 }

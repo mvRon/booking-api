@@ -8,7 +8,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,4 +47,36 @@ public class ReservationController {
                 request.resourceId(), request.start(), request.end());
         return ReservationResponse.from(reservation);
     }
+
+
+    @Operation (summary = "Get reservations for a resource")
+    @ApiResponses ({
+            @ApiResponse (responseCode = "200", description = "Reservations retrieved"),
+            @ApiResponse (responseCode = "404", description = "Resource not found")
+    })
+    @GetMapping(params = "resourceId")
+    @ResponseStatus (HttpStatus.OK)
+    public List<ReservationResponse> getReservationsByResourceId(long resourceId) {
+        List<Reservation> reservations = bookingService.getReservationsByResourceId(resourceId);
+        return reservations.stream()
+                .map(ReservationResponse::from)
+                .toList();
+        
+    }
+
+
+    @Operation (summary = "Get all reservation")
+    @ApiResponses ({
+            @ApiResponse (responseCode = "200", description = "Reservations retrieved"),
+    })
+    @GetMapping 
+    @ResponseStatus(HttpStatus.OK)
+    public List<ReservationResponse> getReservations() {
+        List<Reservation> reservations = bookingService.getReservations();
+        return reservations.stream()
+                .map(ReservationResponse::from)
+                .toList();
+    }
+    
+
 }

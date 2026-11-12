@@ -1,6 +1,7 @@
 package com.mvron.booking.application;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.mvron.booking.domain.Resource;
 import com.mvron.booking.domain.ResourceNotFoundException;
@@ -34,6 +35,15 @@ public class BookingApplicationService {
         reservationService.addReservation(reservation);
         return reservation;
 
+    }
+
+    public List<Reservation> getReservationsByResourceId(long resourceId) {
+        resourceRepository.findById(resourceId).orElseThrow(() -> new ResourceNotFoundException(resourceId));
+        return reservationService.getReservationsByResourceId(resourceId);
+    }
+
+    public List<Reservation> getReservations() {
+        return reservationService.getReservations();
     }
 
 
